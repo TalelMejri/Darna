@@ -19,6 +19,7 @@ import UsersManagement from './layouts/admin/components/userManagement';
 import AnnoncesManagement from './layouts/admin/components/AnnoncesManagement';
 import AdminReports from './layouts/admin/components/AdminReports';
 import FeedBackAdmin from './layouts/admin/components/AdminFeedBack';
+import InstallPrompt from './components/utils/InstallPrompt';
 
 const StudentDashboard = () => (
   <div className="min-h-screen bg-green-50 flex items-center justify-center">

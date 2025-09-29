@@ -2,8 +2,10 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Eye, EyeOff, Mail, Lock, User, ArrowRight, Phone, MapPin, IdCard, GraduationCap, Home, CreditCard } from "lucide-react";
 import logo from "../assets/images/logo_darna.png";
-import { register ,login} from "../services/auth/authService.ts"
+import { register, login } from "../services/auth/authService.ts"
 import { useAuth } from "@/AuthStore/AuthContext.ts";
+import { useNavigate } from 'react-router-dom';
+import InstallPrompt from "@/components/utils/InstallPrompt.tsx";
 export default function HomeScreen() {
 
     const [showLogin, setShowLogin] = useState(true);
@@ -122,6 +124,7 @@ export default function HomeScreen() {
         return Object.keys(newErrors).length === 0;
     };
 
+    const navigate = useNavigate();
     const handleLogin = (e: React.FormEvent) => {
         e.preventDefault();
         if (validateLoginForm()) {
@@ -129,9 +132,26 @@ export default function HomeScreen() {
                 if (response.status === 200) {
                     LoginUser(response.data.user);
                     localStorage.setItem('token', response.data.access_token);
+                    const userRole = response.data.user.role;
+                    switch (userRole) {
+                        case 'admin':
+                            navigate('/admin/dashboard');
+                            break;
+                        case 'student':
+                            navigate('/student/dashboard');
+                            break;
+                        case 'non-student':
+                            navigate('/nonstudent/dashboard');
+                            break;
+                        default:
+                            navigate('/');
+                            break;
+                    }
                 } else {
                     console.error('Login failed:', response.data.message);
                 }
+            }).catch((error) => {
+                console.error('Login error:', error);
             });
         }
     };
@@ -185,6 +205,7 @@ export default function HomeScreen() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-teal-50 flex flex-col relative overflow-hidden">
+              <InstallPrompt />
             <div className="absolute inset-0 overflow-hidden">
                 <div className="absolute -top-24 -right-24 w-96 h-96 bg-gradient-to-r from-teal-200/20 to-blue-200/20 rounded-full blur-3xl" />
                 <div className="absolute -bottom-32 -left-32 w-96 h-96 bg-gradient-to-r from-blue-200/20 to-slate-200/20 rounded-full blur-3xl" />
