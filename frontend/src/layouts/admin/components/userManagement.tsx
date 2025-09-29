@@ -1,37 +1,15 @@
 import { useState, useEffect } from 'react';
-import { Search, Filter, MoreVertical, Eye, Edit, UserX, UserCheck, Download, CheckCircle, XCircle, Info } from 'lucide-react';
-import { GetUsers } from "@/services/admin/adminService";
-interface User {
-  id: number;
-  first_name: string;
-  last_name: string;
-  email: string;
-  role: 'student' | 'non-student' | 'owner' | 'admin';
-  phone: string;
-  address: string;
-  cin: string;
-  university?: string;
-  profile_photo?: string;
-  etudiant_card?: string;
-  etudiant_certif_success?: string;
-  is_verified: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
-interface UsersResponse {
-  data: User[];
-  current_page: number;
-  last_page: number;
-  per_page: number;
-  total: number;
-}
+import { Search, Filter, Eye, UserX, CheckCircle, XCircle, X, ExternalLink } from 'lucide-react';
+import { GetUsers, UpdateUserVerification, DeleteUser, } from "@/services/admin/adminService";
+import type { User as UserType } from '@/services/admin/adminService';
 
 const UsersManagement = () => {
-  const [users, setUsers] = useState<User[]>([]);
+  const [users, setUsers] = useState<UserType[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [selectedUser, setSelectedUser] = useState<UserType | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [showDocumentModal, setShowDocumentModal] = useState(false);
+  const [selectedDocument, setSelectedDocument] = useState<{ url: string; type: string; title: string } | null>(null);
   const [selectedRole, setSelectedRole] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
@@ -47,7 +25,6 @@ const UsersManagement = () => {
     setLoading(true);
     try {
       const response = await GetUsers(page);
-      console.log(response);
 
       if (response.status !== 200) {
         throw new Error('Failed to fetch users');
@@ -75,33 +52,58 @@ const UsersManagement = () => {
 
   // Toggle user verification status
   const toggleUserVerification = async (userId: number) => {
-    console.log('Toggling verification for user ID:', userId);
+    try {
+      const user = users.find(u => u.id === userId);
+      if (!user) return;
 
+      const newVerificationStatus = !user.is_verified;
+
+      const response = await UpdateUserVerification(userId, newVerificationStatus);
+
+      if (response.status === 200) {
+        // Update local state
+        setUsers(prev =>
+          prev.map(user =>
+            user.id === userId
+              ? { ...user, is_verified: newVerificationStatus }
+              : user
+          )
+        );
+
+        // Update selected user if in modal
+        if (selectedUser?.id === userId) {
+          setSelectedUser(prev => prev ? { ...prev, is_verified: newVerificationStatus } : null);
+        }
+
+        alert(`User ${newVerificationStatus ? 'verified' : 'unverified'} successfully`);
+      }
+    } catch (error) {
+      console.error('Error updating user verification:', error);
+      alert('Error updating user verification status');
+    }
   };
 
   // Delete user
   const deleteUser = async (userId: number) => {
-    if (!window.confirm('Are you sure you want to delete this user?')) {
+    if (!window.confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
       return;
     }
 
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:8000/api/users/${userId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      const response = await DeleteUser(userId);
 
-      if (!response.ok) {
-        throw new Error('Failed to delete user');
+      if (response.status === 200) {
+        // Remove from local state
+        setUsers(prev => prev.filter(user => user.id !== userId));
+
+        // Close modals if deleted user is selected
+        if (selectedUser?.id === userId) {
+          setShowDetailsModal(false);
+          setSelectedUser(null);
+        }
+
+        alert('User deleted successfully');
       }
-
-      // Remove from local state
-      setUsers(users.filter(user => user.id !== userId));
-
     } catch (error) {
       console.error('Error deleting user:', error);
       alert('Error deleting user');
@@ -109,17 +111,27 @@ const UsersManagement = () => {
   };
 
   // View user details
-  const viewUserDetails = (user: User) => {
+  const viewUserDetails = (user: UserType) => {
     setSelectedUser(user);
     setShowDetailsModal(true);
   };
 
-  // Download document
-  const downloadDocument = (documentUrl: string, filename: string) => {
-    const link = document.createElement('a');
-    link.href = documentUrl;
-    link.download = filename;
-    link.click();
+  // View document
+  const viewDocument = (documentUrl: string, documentType: string) => {
+    const fullUrl = `http://127.0.0.1:8000/storage/${documentUrl}`;
+    const title = documentType === 'student_card' ? 'Student Card' : 'Success Certificate';
+
+    setSelectedDocument({
+      url: fullUrl,
+      type: documentType,
+      title: title
+    });
+    setShowDocumentModal(true);
+  };
+
+  // Open document in new tab
+  const openDocumentInNewTab = (url: string) => {
+    window.open(url, '_blank');
   };
 
   // Filter users
@@ -401,7 +413,7 @@ const UsersManagement = () => {
                   onClick={() => setShowDetailsModal(false)}
                   className="text-gray-400 hover:text-gray-600"
                 >
-                  <XCircle className="w-6 h-6" />
+                  <X className="w-6 h-6" />
                 </button>
               </div>
 
@@ -487,11 +499,11 @@ const UsersManagement = () => {
                             <p className="text-sm text-gray-600">Document verification</p>
                           </div>
                           <button
-                            onClick={() => downloadDocument('http://127.0.0.1:8000/storage/' + selectedUser.etudiant_card!, 'student_card.pdf')}
-                            className="text-blue-600 hover:text-blue-800 flex items-center space-x-1"
+                            onClick={() => viewDocument(selectedUser.etudiant_card!, 'student_card')}
+                            className="text-blue-600 hover:text-blue-800 flex items-center space-x-1 px-3 py-2 border border-blue-600 rounded-lg transition-colors"
                           >
-                            <Download className="w-4 h-4" />
-                            <span className="text-sm">Download</span>
+                            <Eye className="w-4 h-4" />
+                            <span className="text-sm">View Document</span>
                           </button>
                         </div>
                       )}
@@ -502,11 +514,11 @@ const UsersManagement = () => {
                             <p className="text-sm text-gray-600">Academic performance</p>
                           </div>
                           <button
-                            onClick={() => downloadDocument('http://127.0.0.1:8000/storage/' + selectedUser.etudiant_certif_success!, 'success_certificate.pdf')}
-                            className="text-blue-600 hover:text-blue-800 flex items-center space-x-1"
+                            onClick={() => viewDocument(selectedUser.etudiant_certif_success!, 'success_certificate')}
+                            className="text-blue-600 hover:text-blue-800 flex items-center space-x-1 px-3 py-2 border border-blue-600 rounded-lg transition-colors"
                           >
-                            <Info className="w-4 h-4" />
-                            <span className="text-sm">Voir</span>
+                            <Eye className="w-4 h-4" />
+                            <span className="text-sm">View Document</span>
                           </button>
                         </div>
                       )}
@@ -537,8 +549,50 @@ const UsersManagement = () => {
                   >
                     {selectedUser.is_verified ? 'Unverify User' : 'Verify User'}
                   </button>
+                  <button
+                    onClick={() => deleteUser(selectedUser.id)}
+                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                  >
+                    Delete User
+                  </button>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Document View Modal */}
+      {showDocumentModal && selectedDocument && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden">
+            <div className="flex justify-between items-center p-4 border-b">
+              <h3 className="text-lg font-semibold text-gray-900">{selectedDocument.title}</h3>
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => openDocumentInNewTab(selectedDocument.url)}
+                  className="text-blue-600 hover:text-blue-800 flex items-center space-x-1 px-3 py-1 border border-blue-600 rounded transition-colors"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  <span className="text-sm">Open in New Tab</span>
+                </button>
+                <button
+                  onClick={() => setShowDocumentModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+            <div className="p-4 h-full">
+              <iframe
+                src={selectedDocument.url}
+                className="w-full h-96 border rounded-lg"
+                title={selectedDocument.title}
+              />
+              <p className="text-sm text-gray-500 mt-2 text-center">
+                If the document doesn't load, use the "Open in New Tab" button.
+              </p>
             </div>
           </div>
         </div>

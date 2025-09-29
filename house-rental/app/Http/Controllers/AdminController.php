@@ -84,7 +84,6 @@ class AdminController extends Controller
 
     public function users()
     {
-        //without role admin
         $users = User::where('role', '!=', 'admin')->latest()->paginate(15);
         return response()->json($users);
     }
@@ -102,5 +101,11 @@ class AdminController extends Controller
         $user->update(['is_verified' => $request->is_verified]);
 
         return response()->json($user);
+    }
+
+
+    public function destroyUser(User $user){
+        $user->delete();
+        return response()->json(['message' => 'User deleted successfully']);
     }
 }

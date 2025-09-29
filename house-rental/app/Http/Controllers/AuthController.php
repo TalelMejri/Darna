@@ -70,6 +70,24 @@ class AuthController extends Controller
     {
         if (Auth::attempt($request->only('email', 'password'))) {
             $user = Auth::user();
+
+            // Check if user is an unverified student
+            if ($user->role === 'student' && !$user->is_verified) {
+                Auth::logout(); // Logout the user
+
+                return response()->json([
+                    'message' => 'Your student account is pending verification. Please wait until the administrator verifies your documents.'
+                ], 403);
+            }
+
+            if ($user->role === 'non-student' && !$user->is_verified) {
+                Auth::logout(); // Logout the user
+
+                return response()->json([
+                    'message' => 'Your account is pending verification. Please complete the payment verification process.'
+                ], 403);
+            }
+
             $token = $user->createToken('auth_token')->plainTextToken;
 
             return response()->json([

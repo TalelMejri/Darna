@@ -61,6 +61,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/pending-signals', [AdminController::class, 'pendingSignals']);
         Route::put('/signals/{signal}/status', [AdminController::class, 'updateSignalStatus']);
         Route::get('/users', [AdminController::class, 'users']);
+        Route::delete('/users/{user}', [AdminController::class, 'destroyUser']);
         Route::put('/users/{user}/status', [AdminController::class, 'updateUserStatus']);
     });
 
