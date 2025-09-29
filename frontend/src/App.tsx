@@ -12,14 +12,11 @@ import ProtectedRoute from './AuthStore/protectedRole';
 import { useSelector } from 'react-redux';
 import type { RootState } from './AuthStore/store';
 import AdminLayout from './layouts/admin/adminLayout';
-import UsersManagementTab from './layouts/admin/components/AdminDashboard';
-import ReservationsManagement from './layouts/admin/components/AnnoncesManagement';
 import AdminDashboard from './layouts/admin/components/AdminDashboard';
 import UsersManagement from './layouts/admin/components/userManagement';
 import AnnoncesManagement from './layouts/admin/components/AnnoncesManagement';
 import AdminReports from './layouts/admin/components/AdminReports';
 import FeedBackAdmin from './layouts/admin/components/AdminFeedBack';
-import InstallPrompt from './components/utils/InstallPrompt';
 
 const StudentDashboard = () => (
   <div className="min-h-screen bg-green-50 flex items-center justify-center">

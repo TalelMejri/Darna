@@ -1,39 +1,157 @@
-import { useState } from 'react';
-import { Search, Filter, MoreVertical, Eye, Edit, UserX, UserCheck } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Search, Filter, MoreVertical, Eye, Edit, UserX, UserCheck, Download, CheckCircle, XCircle, Info } from 'lucide-react';
+import { GetUsers } from "@/services/admin/adminService";
+interface User {
+  id: number;
+  first_name: string;
+  last_name: string;
+  email: string;
+  role: 'student' | 'non-student' | 'owner' | 'admin';
+  phone: string;
+  address: string;
+  cin: string;
+  university?: string;
+  profile_photo?: string;
+  etudiant_card?: string;
+  etudiant_certif_success?: string;
+  is_verified: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+interface UsersResponse {
+  data: User[];
+  current_page: number;
+  last_page: number;
+  per_page: number;
+  total: number;
+}
 
 const UsersManagement = () => {
-  const [users, setUsers] = useState([
-    { id: 1, name: 'John Doe', email: 'john@example.com', role: 'student', status: 'active', joinDate: '2024-01-15' },
-    { id: 2, name: 'Jane Smith', email: 'jane@example.com', role: 'owner', status: 'pending', joinDate: '2024-01-14' },
-    { id: 3, name: 'Mike Johnson', email: 'mike@example.com', role: 'non-student', status: 'active', joinDate: '2024-01-13' },
-    { id: 4, name: 'Sarah Wilson', email: 'sarah@example.com', role: 'student', status: 'suspended', joinDate: '2024-01-12' },
-  ]);
-
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedRole, setSelectedRole] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [pagination, setPagination] = useState({
+    current_page: 1,
+    last_page: 1,
+    per_page: 15,
+    total: 0
+  });
 
-  const toggleUserStatus = (userId: number) => {
-    setUsers(users.map(user => 
-      user.id === userId 
-        ? { ...user, status: user.status === 'suspended' ? 'active' : 'suspended' }
-        : user
-    ));
-  };
+  // Fetch users from API
+  const fetchUsers = async (page = 1) => {
+    setLoading(true);
+    try {
+      const response = await GetUsers(page);
+      console.log(response);
 
-  const deleteUser = (userId: number) => {
-    if (window.confirm('Are you sure you want to delete this user?')) {
-      setUsers(users.filter(user => user.id !== userId));
+      if (response.status !== 200) {
+        throw new Error('Failed to fetch users');
+      }
+
+      const data = response.data;
+      setUsers(data.data);
+      setPagination({
+        current_page: data.current_page,
+        last_page: data.last_page,
+        per_page: data.per_page,
+        total: data.total
+      });
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      alert('Error fetching users');
+    } finally {
+      setLoading(false);
     }
   };
 
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  // Toggle user verification status
+  const toggleUserVerification = async (userId: number) => {
+    console.log('Toggling verification for user ID:', userId);
+
+  };
+
+  // Delete user
+  const deleteUser = async (userId: number) => {
+    if (!window.confirm('Are you sure you want to delete this user?')) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:8000/api/users/${userId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete user');
+      }
+
+      // Remove from local state
+      setUsers(users.filter(user => user.id !== userId));
+
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      alert('Error deleting user');
+    }
+  };
+
+  // View user details
+  const viewUserDetails = (user: User) => {
+    setSelectedUser(user);
+    setShowDetailsModal(true);
+  };
+
+  // Download document
+  const downloadDocument = (documentUrl: string, filename: string) => {
+    const link = document.createElement('a');
+    link.href = documentUrl;
+    link.download = filename;
+    link.click();
+  };
+
+  // Filter users
   const filteredUsers = users.filter(user => {
     const matchesRole = selectedRole === 'all' || user.role === selectedRole;
-    const matchesStatus = selectedStatus === 'all' || user.status === selectedStatus;
-    const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                         user.email.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = selectedStatus === 'all' ||
+      (selectedStatus === 'verified' && user.is_verified) ||
+      (selectedStatus === 'unverified' && !user.is_verified);
+    const matchesSearch =
+      user.first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.last_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.cin.toLowerCase().includes(searchTerm.toLowerCase());
+
     return matchesRole && matchesStatus && matchesSearch;
   });
+
+  // Format date
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('fr-FR');
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading users...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -41,16 +159,18 @@ const UsersManagement = () => {
       <div className="flex flex-col gap-4 mb-6">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Users Management</h1>
-          <p className="text-gray-600 text-sm sm:text-base mt-1">Manage all platform users</p>
+          <p className="text-gray-600 text-sm sm:text-base mt-1">
+            Total: {pagination.total} users
+          </p>
         </div>
-        
+
         <div className="flex flex-col sm:flex-row gap-3">
           {/* Search */}
           <div className="relative flex-1">
             <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Search users..."
+              placeholder="Search by name, email, or CIN..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-full text-sm"
@@ -59,7 +179,7 @@ const UsersManagement = () => {
 
           {/* Filtres */}
           <div className="flex gap-2">
-            <select 
+            <select
               value={selectedRole}
               onChange={(e) => setSelectedRole(e.target.value)}
               className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm flex-1"
@@ -69,16 +189,15 @@ const UsersManagement = () => {
               <option value="non-student">Non-Student</option>
               <option value="owner">Owner</option>
             </select>
-            
-            <select 
+
+            <select
               value={selectedStatus}
               onChange={(e) => setSelectedStatus(e.target.value)}
               className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm flex-1"
             >
               <option value="all">All Status</option>
-              <option value="active">Active</option>
-              <option value="pending">Pending</option>
-              <option value="suspended">Suspended</option>
+              <option value="verified">Verified</option>
+              <option value="unverified">Unverified</option>
             </select>
           </div>
         </div>
@@ -87,10 +206,11 @@ const UsersManagement = () => {
       {/* Tableau desktop */}
       <div className="hidden lg:block bg-white rounded-lg shadow-sm border overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[600px]">
+          <table className="w-full min-w-[800px]">
             <thead className="bg-gray-50">
               <tr>
                 <th className="text-left py-3 px-4 font-medium text-gray-900 text-sm">User</th>
+                <th className="text-left py-3 px-4 font-medium text-gray-900 text-sm">CIN / Phone</th>
                 <th className="text-left py-3 px-4 font-medium text-gray-900 text-sm">Role</th>
                 <th className="text-left py-3 px-4 font-medium text-gray-900 text-sm">Status</th>
                 <th className="text-left py-3 px-4 font-medium text-gray-900 text-sm">Join Date</th>
@@ -102,46 +222,64 @@ const UsersManagement = () => {
                 <tr key={user.id} className="hover:bg-gray-50">
                   <td className="py-4 px-4">
                     <div>
-                      <p className="font-medium text-gray-900">{user.name}</p>
+                      <p className="font-medium text-gray-900">
+                        {user.first_name} {user.last_name}
+                      </p>
                       <p className="text-sm text-gray-600">{user.email}</p>
+                      {user.university && (
+                        <p className="text-xs text-blue-600 mt-1">{user.university}</p>
+                      )}
                     </div>
                   </td>
                   <td className="py-4 px-4">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      user.role === 'student' ? 'bg-green-100 text-green-800' :
+                    <div className="text-sm text-gray-600">
+                      <p>CIN: {user.cin}</p>
+                      <p>Phone: {user.phone}</p>
+                    </div>
+                  </td>
+                  <td className="py-4 px-4">
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${user.role === 'student' ? 'bg-green-100 text-green-800' :
                       user.role === 'owner' ? 'bg-blue-100 text-blue-800' :
-                      'bg-purple-100 text-purple-800'
-                    }`}>
+                        user.role === 'admin' ? 'bg-red-100 text-red-800' :
+                          'bg-purple-100 text-purple-800'
+                      }`}>
                       {user.role}
                     </span>
                   </td>
                   <td className="py-4 px-4">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      user.status === 'active' ? 'bg-green-100 text-green-800' :
-                      user.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-red-100 text-red-800'
-                    }`}>
-                      {user.status}
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${user.is_verified ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                      }`}>
+                      {user.is_verified ? 'Verified' : 'Unverified'}
                     </span>
                   </td>
-                  <td className="py-4 px-4 text-gray-600 text-sm">{user.joinDate}</td>
+                  <td className="py-4 px-4 text-gray-600 text-sm">
+                    {formatDate(user.created_at)}
+                  </td>
                   <td className="py-4 px-4">
                     <div className="flex space-x-2">
-                      <button className="text-blue-600 hover:text-blue-800 p-1 rounded transition-colors">
+                      <button
+                        onClick={() => viewUserDetails(user)}
+                        className="text-blue-600 hover:text-blue-800 p-1 rounded transition-colors"
+                        title="View Details"
+                      >
                         <Eye className="w-4 h-4" />
                       </button>
-                      <button className="text-green-600 hover:text-green-800 p-1 rounded transition-colors">
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button 
-                        onClick={() => toggleUserStatus(user.id)}
-                        className={`p-1 rounded transition-colors ${
-                          user.status === 'suspended' 
-                            ? 'text-green-600 hover:text-green-800' 
-                            : 'text-red-600 hover:text-red-800'
-                        }`}
+                      <button
+                        onClick={() => toggleUserVerification(user.id)}
+                        className={`p-1 rounded transition-colors ${user.is_verified
+                          ? 'text-yellow-600 hover:text-yellow-800'
+                          : 'text-green-600 hover:text-green-800'
+                          }`}
+                        title={user.is_verified ? 'Unverify User' : 'Verify User'}
                       >
-                        {user.status === 'suspended' ? <UserCheck className="w-4 h-4" /> : <UserX className="w-4 h-4" />}
+                        {user.is_verified ? <XCircle className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}
+                      </button>
+                      <button
+                        onClick={() => deleteUser(user.id)}
+                        className="text-red-600 hover:text-red-800 p-1 rounded transition-colors"
+                        title="Delete User"
+                      >
+                        <UserX className="w-4 h-4" />
                       </button>
                     </div>
                   </td>
@@ -158,48 +296,60 @@ const UsersManagement = () => {
           <div key={user.id} className="bg-white rounded-lg shadow-sm border p-4">
             <div className="flex justify-between items-start mb-3">
               <div className="flex-1">
-                <h3 className="font-semibold text-gray-900 text-base">{user.name}</h3>
+                <h3 className="font-semibold text-gray-900 text-base">
+                  {user.first_name} {user.last_name}
+                </h3>
                 <p className="text-sm text-gray-600 mb-2">{user.email}</p>
+                {user.university && (
+                  <p className="text-xs text-blue-600 mb-2">{user.university}</p>
+                )}
                 <div className="flex flex-wrap gap-2">
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    user.role === 'student' ? 'bg-green-100 text-green-800' :
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${user.role === 'student' ? 'bg-green-100 text-green-800' :
                     user.role === 'owner' ? 'bg-blue-100 text-blue-800' :
-                    'bg-purple-100 text-purple-800'
-                  }`}>
+                      user.role === 'admin' ? 'bg-red-100 text-red-800' :
+                        'bg-purple-100 text-purple-800'
+                    }`}>
                     {user.role}
                   </span>
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    user.status === 'active' ? 'bg-green-100 text-green-800' :
-                    user.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                    'bg-red-100 text-red-800'
-                  }`}>
-                    {user.status}
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${user.is_verified ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                    }`}>
+                    {user.is_verified ? 'Verified' : 'Unverified'}
                   </span>
                 </div>
               </div>
-              <button className="p-1 text-gray-400 hover:text-gray-600">
-                <MoreVertical className="w-4 h-4" />
-              </button>
             </div>
-            
+
+            <div className="text-sm text-gray-600 mb-3">
+              <p>CIN: {user.cin}</p>
+              <p>Phone: {user.phone}</p>
+              <p>Joined: {formatDate(user.created_at)}</p>
+            </div>
+
             <div className="flex justify-between items-center pt-3 border-t">
-              <span className="text-sm text-gray-500">Joined: {user.joinDate}</span>
               <div className="flex space-x-2">
-                <button className="text-blue-600 hover:text-blue-800 p-1 rounded transition-colors">
+                <button
+                  onClick={() => viewUserDetails(user)}
+                  className="text-blue-600 hover:text-blue-800 p-1 rounded transition-colors"
+                  title="View Details"
+                >
                   <Eye className="w-4 h-4" />
                 </button>
-                <button className="text-green-600 hover:text-green-800 p-1 rounded transition-colors">
-                  <Edit className="w-4 h-4" />
-                </button>
-                <button 
-                  onClick={() => toggleUserStatus(user.id)}
-                  className={`p-1 rounded transition-colors ${
-                    user.status === 'suspended' 
-                      ? 'text-green-600 hover:text-green-800' 
-                      : 'text-red-600 hover:text-red-800'
-                  }`}
+                <button
+                  onClick={() => toggleUserVerification(user.id)}
+                  className={`p-1 rounded transition-colors ${user.is_verified
+                    ? 'text-yellow-600 hover:text-yellow-800'
+                    : 'text-green-600 hover:text-green-800'
+                    }`}
+                  title={user.is_verified ? 'Unverify User' : 'Verify User'}
                 >
-                  {user.status === 'suspended' ? <UserCheck className="w-4 h-4" /> : <UserX className="w-4 h-4" />}
+                  {user.is_verified ? <XCircle className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}
+                </button>
+                <button
+                  onClick={() => deleteUser(user.id)}
+                  className="text-red-600 hover:text-red-800 p-1 rounded transition-colors"
+                  title="Delete User"
+                >
+                  <UserX className="w-4 h-4" />
                 </button>
               </div>
             </div>
@@ -207,11 +357,190 @@ const UsersManagement = () => {
         ))}
       </div>
 
+      {/* Pagination */}
+      {pagination.last_page > 1 && (
+        <div className="flex justify-center items-center space-x-2 mt-6">
+          <button
+            onClick={() => fetchUsers(pagination.current_page - 1)}
+            disabled={pagination.current_page === 1}
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+          >
+            Previous
+          </button>
+
+          <span className="text-sm text-gray-600">
+            Page {pagination.current_page} of {pagination.last_page}
+          </span>
+
+          <button
+            onClick={() => fetchUsers(pagination.current_page + 1)}
+            disabled={pagination.current_page === pagination.last_page}
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+          >
+            Next
+          </button>
+        </div>
+      )}
+
       {/* Empty state */}
-      {filteredUsers.length === 0 && (
+      {filteredUsers.length === 0 && !loading && (
         <div className="text-center py-12">
           <div className="text-gray-400 mb-2">No users found</div>
           <div className="text-gray-500 text-sm">Try changing your filters or search term</div>
+        </div>
+      )}
+
+      {/* User Details Modal */}
+      {showDetailsModal && selectedUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-bold text-gray-900">User Details</h2>
+                <button
+                  onClick={() => setShowDetailsModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <XCircle className="w-6 h-6" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                {/* Personal Information */}
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Personal Information</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-medium text-gray-700">First Name</label>
+                      <p className="text-gray-900">{selectedUser.first_name}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-700">Last Name</label>
+                      <p className="text-gray-900">{selectedUser.last_name}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-700">Email</label>
+                      <p className="text-gray-900">{selectedUser.email}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-700">Phone</label>
+                      <p className="text-gray-900">{selectedUser.phone}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-700">CIN</label>
+                      <p className="text-gray-900">{selectedUser.cin}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-700">Address</label>
+                      <p className="text-gray-900">{selectedUser.address}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Role & Status */}
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Account Information</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-medium text-gray-700">Role</label>
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${selectedUser.role === 'student' ? 'bg-green-100 text-green-800' :
+                        selectedUser.role === 'owner' ? 'bg-blue-100 text-blue-800' :
+                          selectedUser.role === 'admin' ? 'bg-red-100 text-red-800' :
+                            'bg-purple-100 text-purple-800'
+                        }`}>
+                        {selectedUser.role}
+                      </span>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-700">Status</label>
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${selectedUser.is_verified ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                        }`}>
+                        {selectedUser.is_verified ? 'Verified' : 'Unverified'}
+                      </span>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-700">Join Date</label>
+                      <p className="text-gray-900">{formatDate(selectedUser.created_at)}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-700">Last Update</label>
+                      <p className="text-gray-900">{formatDate(selectedUser.updated_at)}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Student Documents */}
+                {selectedUser.role === 'student' && (
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-3">Student Documents</h3>
+                    <div className="space-y-3">
+                      {selectedUser.university && (
+                        <div>
+                          <label className="text-sm font-medium text-gray-700">University</label>
+                          <p className="text-gray-900">{selectedUser.university}</p>
+                        </div>
+                      )}
+                      {selectedUser.etudiant_card && (
+                        <div className="flex items-center justify-between p-3 border rounded-lg">
+                          <div>
+                            <p className="font-medium text-gray-900">Student Card</p>
+                            <p className="text-sm text-gray-600">Document verification</p>
+                          </div>
+                          <button
+                            onClick={() => downloadDocument('http://127.0.0.1:8000/storage/' + selectedUser.etudiant_card!, 'student_card.pdf')}
+                            className="text-blue-600 hover:text-blue-800 flex items-center space-x-1"
+                          >
+                            <Download className="w-4 h-4" />
+                            <span className="text-sm">Download</span>
+                          </button>
+                        </div>
+                      )}
+                      {selectedUser.etudiant_certif_success && (
+                        <div className="flex items-center justify-between p-3 border rounded-lg">
+                          <div>
+                            <p className="font-medium text-gray-900">Success Certificate</p>
+                            <p className="text-sm text-gray-600">Academic performance</p>
+                          </div>
+                          <button
+                            onClick={() => downloadDocument('http://127.0.0.1:8000/storage/' + selectedUser.etudiant_certif_success!, 'success_certificate.pdf')}
+                            className="text-blue-600 hover:text-blue-800 flex items-center space-x-1"
+                          >
+                            <Info className="w-4 h-4" />
+                            <span className="text-sm">Voir</span>
+                          </button>
+                        </div>
+                      )}
+                      {!selectedUser.etudiant_card && !selectedUser.etudiant_certif_success && (
+                        <p className="text-gray-500 text-sm">No documents uploaded</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div className="flex justify-end space-x-3 pt-4 border-t">
+                  <button
+                    onClick={() => setShowDetailsModal(false)}
+                    className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    Close
+                  </button>
+                  <button
+                    onClick={() => {
+                      toggleUserVerification(selectedUser.id);
+                      setShowDetailsModal(false);
+                    }}
+                    className={`px-4 py-2 rounded-lg text-white transition-colors ${selectedUser.is_verified
+                      ? 'bg-yellow-600 hover:bg-yellow-700'
+                      : 'bg-green-600 hover:bg-green-700'
+                      }`}
+                  >
+                    {selectedUser.is_verified ? 'Unverify User' : 'Verify User'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

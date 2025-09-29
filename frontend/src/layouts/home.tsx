@@ -1,13 +1,12 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Eye, EyeOff, Mail, Lock, User, ArrowRight, Phone, MapPin, IdCard, GraduationCap, Home, CreditCard } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, User, ArrowRight, Phone, MapPin, IdCard, GraduationCap, Home, CreditCard, AlertCircle } from "lucide-react";
 import logo from "../assets/images/logo_darna.png";
 import { register, login } from "../services/auth/authService.ts"
 import { useAuth } from "@/AuthStore/AuthContext.ts";
 import { useNavigate } from 'react-router-dom';
-import InstallPrompt from "@/components/utils/InstallPrompt.tsx";
-export default function HomeScreen() {
 
+export default function HomeScreen() {
     const [showLogin, setShowLogin] = useState(true);
     const [showPassword, setShowPassword] = useState(false);
     const [isLoaded, setIsLoaded] = useState(false);
@@ -28,6 +27,8 @@ export default function HomeScreen() {
     });
 
     const [errors, setErrors] = useState<Record<string, string>>({});
+    const [backendError, setBackendError] = useState<string>(''); // Erreur générale du backend
+    const [loading, setLoading] = useState(false);
 
     useEffect(() => {
         setIsLoaded(true);
@@ -56,11 +57,14 @@ export default function HomeScreen() {
         if (errors[field]) {
             setErrors(prev => ({ ...prev, [field]: '' }));
         }
+        // Effacer l'erreur backend quand l'utilisateur tape
+        if (backendError) {
+            setBackendError('');
+        }
     };
 
     const handleFileChange = (field: string, file: File | null) => {
         setFormData(prev => ({ ...prev, [field]: file }));
-
         if (errors[field]) {
             setErrors(prev => ({ ...prev, [field]: '' }));
         }
@@ -108,10 +112,9 @@ export default function HomeScreen() {
         if (!validateRequired(formData.phone)) {
             newErrors.phone = 'Phone number is required';
         } else if (!validatePhone(formData.phone)) {
-            newErrors.phone = 'Please enter a valid 10-digit phone number';
+            newErrors.phone = 'Please enter a valid 8-digit phone number';
         }
         if (!validateRequired(formData.address)) newErrors.address = 'Address is required';
-
 
         if (selectedRole === 'student') {
             if (!validateRequired(formData.university)) newErrors.university = 'University is required';
@@ -125,20 +128,27 @@ export default function HomeScreen() {
     };
 
     const navigate = useNavigate();
-    const handleLogin = (e: React.FormEvent) => {
+
+    const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
+        setBackendError('');
+        
         if (validateLoginForm()) {
-            login({ email: formData.email, password: formData.password }).then((response) => {
+            setLoading(true);
+            try {
+                const response = await login({ email: formData.email, password: formData.password });
+                
                 if (response.status === 200) {
                     LoginUser(response.data.user);
                     localStorage.setItem('token', response.data.access_token);
                     const userRole = response.data.user.role;
+                    
                     switch (userRole) {
                         case 'admin':
                             navigate('/admin/dashboard');
                             break;
                         case 'student':
-                            navigate('/student/dashboard');
+                            navigate('/student/annonces'); // Redirige vers les annonces
                             break;
                         case 'non-student':
                             navigate('/nonstudent/dashboard');
@@ -147,40 +157,114 @@ export default function HomeScreen() {
                             navigate('/');
                             break;
                     }
-                } else {
-                    console.error('Login failed:', response.data.message);
                 }
-            }).catch((error) => {
+            } catch (error: any) {
                 console.error('Login error:', error);
-            });
+                
+                // Gestion des erreurs du backend
+                if (error.response) {
+                    const errorMessage = error.response.data?.message || 
+                                       error.response.data?.error ||
+                                       'Erreur de connexion';
+                    setBackendError(errorMessage);
+                    
+                    // Mapper les erreurs spécifiques aux champs si nécessaire
+                    if (error.response.data?.errors) {
+                        const fieldErrors = error.response.data.errors;
+                        setErrors(fieldErrors);
+                    }
+                } else if (error.request) {
+                    setBackendError('Erreur de réseau. Veuillez vérifier votre connexion.');
+                } else {
+                    setBackendError('Une erreur inattendue est survenue.');
+                }
+            } finally {
+                setLoading(false);
+            }
         }
     };
 
     const handleRegister = async (e: React.FormEvent) => {
         e.preventDefault();
+        setBackendError('');
+        
         if (validateRegistrationForm()) {
-            const userRegister = new FormData();
-            userRegister.append('name', formData.name);
-            userRegister.append('prenom', formData.prenom);
-            userRegister.append('email', formData.email);
-            userRegister.append('password', formData.password);
-            userRegister.append('role', selectedRole || '');
-            userRegister.append('phone', formData.phone);
-            userRegister.append('address', formData.address);
-            userRegister.append('cin', formData.cin);
-            if (selectedRole === 'student') {
-                userRegister.append('university', formData.university);
-                if (formData.studentCard) {
-                    userRegister.append('student_card', formData.studentCard);
+            setLoading(true);
+            try {
+                const userRegister = new FormData();
+                userRegister.append('name', formData.name);
+                userRegister.append('prenom', formData.prenom);
+                userRegister.append('email', formData.email);
+                userRegister.append('password', formData.password);
+                userRegister.append('role', selectedRole || '');
+                userRegister.append('phone', formData.phone);
+                userRegister.append('address', formData.address);
+                userRegister.append('cin', formData.cin);
+                
+                if (selectedRole === 'student') {
+                    userRegister.append('university', formData.university);
+                    if (formData.studentCard) {
+                        userRegister.append('student_card', formData.studentCard);
+                    }
+                    if (formData.successCertificate) {
+                        userRegister.append('success_certificate', formData.successCertificate);
+                    }
                 }
-                if (formData.successCertificate) {
-                    userRegister.append('success_certificate', formData.successCertificate);
+
+                const response = await register(userRegister);
+                
+                if (response.status === 201) {
+                    setShowLogin(true);
+                    resetForm();
+                    // Optionnel: Afficher un message de succès
+                    setBackendError('Inscription réussie ! Vous pouvez maintenant vous connecter.');
+                    setTimeout(() => setBackendError(''), 5000);
                 }
-            }
-            const response = await register(userRegister);
-            if (response.status == 201) {
-                setShowLogin(true);
-                resetForm();
+            } catch (error: any) {
+                console.error('Registration error:', error);
+                
+                // Gestion détaillée des erreurs du backend
+                if (error.response) {
+                    const errorData = error.response.data;
+                    
+                    // Erreur générale
+                    const errorMessage = errorData?.message || 
+                                       errorData?.error ||
+                                       "Erreur lors de l'inscription";
+                    setBackendError(errorMessage);
+                    
+                    // Mapper les erreurs de validation des champs
+                    if (errorData.errors) {
+                        const fieldErrors: Record<string, string> = {};
+                        
+                        // Gestion des erreurs Laravel typiques
+                        Object.keys(errorData.errors).forEach(field => {
+                            const fieldName = field === 'student_card' ? 'studentCard' : 
+                                            field === 'success_certificate' ? 'successCertificate' : field;
+                            fieldErrors[fieldName] = errorData.errors[field][0];
+                        });
+                        
+                        setErrors(fieldErrors);
+                    }
+                    
+                    // Gestion spécifique des erreurs communes
+                    if (errorMessage.includes('email') || errorMessage.includes('Email')) {
+                        setErrors(prev => ({ ...prev, email: 'Cet email est déjà utilisé' }));
+                    }
+                    if (errorMessage.includes('cin') || errorMessage.includes('CIN')) {
+                        setErrors(prev => ({ ...prev, cin: 'Ce CIN est déjà utilisé' }));
+                    }
+                    if (errorMessage.includes('phone') || errorMessage.includes('téléphone')) {
+                        setErrors(prev => ({ ...prev, phone: 'Ce numéro de téléphone est déjà utilisé' }));
+                    }
+                    
+                } else if (error.request) {
+                    setBackendError('Erreur de réseau. Veuillez vérifier votre connexion.');
+                } else {
+                    setBackendError("Une erreur inattendue est survenue lors de l'inscription.");
+                }
+            } finally {
+                setLoading(false);
             }
         }
     };
@@ -200,12 +284,12 @@ export default function HomeScreen() {
             paymentMethod: '',
         });
         setErrors({});
+        setBackendError('');
         setSelectedRole(null);
     };
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-teal-50 flex flex-col relative overflow-hidden">
-              <InstallPrompt />
             <div className="absolute inset-0 overflow-hidden">
                 <div className="absolute -top-24 -right-24 w-96 h-96 bg-gradient-to-r from-teal-200/20 to-blue-200/20 rounded-full blur-3xl" />
                 <div className="absolute -bottom-32 -left-32 w-96 h-96 bg-gradient-to-r from-blue-200/20 to-slate-200/20 rounded-full blur-3xl" />
@@ -257,6 +341,20 @@ export default function HomeScreen() {
                             </button>
                         </div>
 
+                        {/* Message d'erreur/succès backend */}
+                        {backendError && (
+                            <div className={`mb-6 p-4 rounded-xl flex items-center space-x-3 ${
+                                backendError.includes('réussie') 
+                                    ? 'bg-green-50 border border-green-200 text-green-800'
+                                    : 'bg-red-50 border border-red-200 text-red-800'
+                            }`}>
+                                <AlertCircle className={`w-5 h-5 flex-shrink-0 ${
+                                    backendError.includes('réussie') ? 'text-green-500' : 'text-red-500'
+                                }`} />
+                                <p className="text-sm font-medium">{backendError}</p>
+                            </div>
+                        )}
+
                         {/* Login Form */}
                         {showLogin ? (
                             <form onSubmit={handleLogin} className="space-y-5">
@@ -306,9 +404,22 @@ export default function HomeScreen() {
                                 </div>
 
                                 {/* Login Button */}
-                                <Button type="submit" className="w-full bg-gradient-to-r from-teal-600 to-blue-600 hover:from-teal-700 hover:to-blue-700 text-white py-4 rounded-2xl font-semibold shadow-lg shadow-teal-500/25 hover:shadow-xl hover:shadow-teal-500/30 transition-all duration-300 group">
-                                    <span>Sign In</span>
-                                    <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                                <Button 
+                                    type="submit" 
+                                    disabled={loading}
+                                    className="w-full bg-gradient-to-r from-teal-600 to-blue-600 hover:from-teal-700 hover:to-blue-700 text-white py-4 rounded-2xl font-semibold shadow-lg shadow-teal-500/25 hover:shadow-xl hover:shadow-teal-500/30 transition-all duration-300 group disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {loading ? (
+                                        <div className="flex items-center justify-center">
+                                            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                                            <span>Connexion...</span>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <span>Sign In</span>
+                                            <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                                        </>
+                                    )}
                                 </Button>
                             </form>
                         ) : (
@@ -540,9 +651,22 @@ export default function HomeScreen() {
                                         </div>
 
                                         {/* Register Button */}
-                                        <Button type="submit" className="w-full bg-gradient-to-r from-blue-600 to-teal-600 hover:from-blue-700 hover:to-teal-700 text-white py-4 rounded-2xl font-semibold shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/30 transition-all duration-300 group">
-                                            <span>Create {selectedRole} Account</span>
-                                            <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                                        <Button 
+                                            type="submit" 
+                                            disabled={loading}
+                                            className="w-full bg-gradient-to-r from-blue-600 to-teal-600 hover:from-blue-700 hover:to-teal-700 text-white py-4 rounded-2xl font-semibold shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/30 transition-all duration-300 group disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            {loading ? (
+                                                <div className="flex items-center justify-center">
+                                                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                                                    <span>Inscription...</span>
+                                                </div>
+                                            ) : (
+                                                <>
+                                                    <span>Create {selectedRole} Account</span>
+                                                    <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                                                </>
+                                            )}
                                         </Button>
                                     </form>
                                 )}

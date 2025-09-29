@@ -5,6 +5,7 @@ use App\Http\Controllers\AnnonceController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\FeedbackController;
+use App\Http\Controllers\NotifController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ReservationController;
 use App\Http\Controllers\SignalController;
@@ -62,4 +63,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/users', [AdminController::class, 'users']);
         Route::put('/users/{user}/status', [AdminController::class, 'updateUserStatus']);
     });
+
+
+    Route::get('/notifications', [NotifController::class, 'index']);
+    Route::put('/notifications/{notification}/read', [NotifController::class, 'markAsRead']);
+    Route::put('/notifications/read-all', [NotifController::class, 'markAllAsRead']);
+    Route::delete('/notifications/{notification}', [NotifController::class, 'destroy']);
 });

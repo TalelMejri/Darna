@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Validator;
 
 class AdminController extends Controller
 {
-     public function dashboardStats()
+    public function dashboardStats()
     {
         $stats = [
             'total_users' => User::count(),
@@ -84,8 +84,8 @@ class AdminController extends Controller
 
     public function users()
     {
-        $users = User::latest()->paginate(15);
-
+        //without role admin
+        $users = User::where('role', '!=', 'admin')->latest()->paginate(15);
         return response()->json($users);
     }
 

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Notification;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -40,6 +41,16 @@ class AuthController extends Controller
             }
 
             $user = User::create($userData);
+            if ($request->role === 'student' || $request->role === 'non-student') {
+                Notification::create([
+                    'user_id' => 1,
+                    'title' => 'New User Registration',
+                    'message' => 'A new user has registered and is awaiting verification.',
+                    'type' => 'system',
+                    'data' => ['user_id' => $user->id],
+                ]);
+            }
+
             $token = $user->createToken('auth-token')->plainTextToken;
             return response()->json([
                 'message' => 'User created successfully',
