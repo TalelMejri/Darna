@@ -1,4 +1,4 @@
-# 🏠 RentalApp - Student Housing Platform
+# 🏠 DARNA - Student Housing Platform
 
 ![RentalApp](https://img.shields.io/badge/RentalApp-Student%20Housing-blue)
 ![React](https://img.shields.io/badge/React-18.2.0-61dafb)
