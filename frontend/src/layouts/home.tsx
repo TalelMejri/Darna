@@ -5,6 +5,7 @@ import logo from "../assets/images/logo_darna.png";
 import { register, login } from "../services/auth/authService.ts"
 import { useAuth } from "@/AuthStore/AuthContext.ts";
 import { useNavigate } from 'react-router-dom';
+import InstallPrompt from "@/components/utils/InstallPrompt.tsx";
 
 export default function HomeScreen() {
     const [showLogin, setShowLogin] = useState(true);
@@ -132,17 +133,17 @@ export default function HomeScreen() {
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         setBackendError('');
-        
+
         if (validateLoginForm()) {
             setLoading(true);
             try {
                 const response = await login({ email: formData.email, password: formData.password });
-                
+
                 if (response.status === 200) {
                     LoginUser(response.data.user);
                     localStorage.setItem('token', response.data.access_token);
                     const userRole = response.data.user.role;
-                    
+
                     switch (userRole) {
                         case 'admin':
                             navigate('/admin/dashboard');
@@ -153,6 +154,9 @@ export default function HomeScreen() {
                         case 'non-student':
                             navigate('/nonstudent/dashboard');
                             break;
+                        case 'owner':
+                            navigate('/owner/dashboard');
+                            break;
                         default:
                             navigate('/');
                             break;
@@ -160,14 +164,14 @@ export default function HomeScreen() {
                 }
             } catch (error: any) {
                 console.error('Login error:', error);
-                
+
                 // Gestion des erreurs du backend
                 if (error.response) {
-                    const errorMessage = error.response.data?.message || 
-                                       error.response.data?.error ||
-                                       'Erreur de connexion';
+                    const errorMessage = error.response.data?.message ||
+                        error.response.data?.error ||
+                        'Erreur de connexion';
                     setBackendError(errorMessage);
-                    
+
                     // Mapper les erreurs spécifiques aux champs si nécessaire
                     if (error.response.data?.errors) {
                         const fieldErrors = error.response.data.errors;
@@ -187,7 +191,7 @@ export default function HomeScreen() {
     const handleRegister = async (e: React.FormEvent) => {
         e.preventDefault();
         setBackendError('');
-        
+
         if (validateRegistrationForm()) {
             setLoading(true);
             try {
@@ -200,7 +204,7 @@ export default function HomeScreen() {
                 userRegister.append('phone', formData.phone);
                 userRegister.append('address', formData.address);
                 userRegister.append('cin', formData.cin);
-                
+
                 if (selectedRole === 'student') {
                     userRegister.append('university', formData.university);
                     if (formData.studentCard) {
@@ -212,7 +216,7 @@ export default function HomeScreen() {
                 }
 
                 const response = await register(userRegister);
-                
+
                 if (response.status === 201) {
                     setShowLogin(true);
                     resetForm();
@@ -222,31 +226,31 @@ export default function HomeScreen() {
                 }
             } catch (error: any) {
                 console.error('Registration error:', error);
-                
+
                 // Gestion détaillée des erreurs du backend
                 if (error.response) {
                     const errorData = error.response.data;
-                    
+
                     // Erreur générale
-                    const errorMessage = errorData?.message || 
-                                       errorData?.error ||
-                                       "Erreur lors de l'inscription";
+                    const errorMessage = errorData?.message ||
+                        errorData?.error ||
+                        "Erreur lors de l'inscription";
                     setBackendError(errorMessage);
-                    
+
                     // Mapper les erreurs de validation des champs
                     if (errorData.errors) {
                         const fieldErrors: Record<string, string> = {};
-                        
+
                         // Gestion des erreurs Laravel typiques
                         Object.keys(errorData.errors).forEach(field => {
-                            const fieldName = field === 'student_card' ? 'studentCard' : 
-                                            field === 'success_certificate' ? 'successCertificate' : field;
+                            const fieldName = field === 'student_card' ? 'studentCard' :
+                                field === 'success_certificate' ? 'successCertificate' : field;
                             fieldErrors[fieldName] = errorData.errors[field][0];
                         });
-                        
+
                         setErrors(fieldErrors);
                     }
-                    
+
                     // Gestion spécifique des erreurs communes
                     if (errorMessage.includes('email') || errorMessage.includes('Email')) {
                         setErrors(prev => ({ ...prev, email: 'Cet email est déjà utilisé' }));
@@ -257,7 +261,7 @@ export default function HomeScreen() {
                     if (errorMessage.includes('phone') || errorMessage.includes('téléphone')) {
                         setErrors(prev => ({ ...prev, phone: 'Ce numéro de téléphone est déjà utilisé' }));
                     }
-                    
+
                 } else if (error.request) {
                     setBackendError('Erreur de réseau. Veuillez vérifier votre connexion.');
                 } else {
@@ -290,6 +294,7 @@ export default function HomeScreen() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-teal-50 flex flex-col relative overflow-hidden">
+            <InstallPrompt />
             <div className="absolute inset-0 overflow-hidden">
                 <div className="absolute -top-24 -right-24 w-96 h-96 bg-gradient-to-r from-teal-200/20 to-blue-200/20 rounded-full blur-3xl" />
                 <div className="absolute -bottom-32 -left-32 w-96 h-96 bg-gradient-to-r from-blue-200/20 to-slate-200/20 rounded-full blur-3xl" />
@@ -343,14 +348,12 @@ export default function HomeScreen() {
 
                         {/* Message d'erreur/succès backend */}
                         {backendError && (
-                            <div className={`mb-6 p-4 rounded-xl flex items-center space-x-3 ${
-                                backendError.includes('réussie') 
+                            <div className={`mb-6 p-4 rounded-xl flex items-center space-x-3 ${backendError.includes('réussie')
                                     ? 'bg-green-50 border border-green-200 text-green-800'
                                     : 'bg-red-50 border border-red-200 text-red-800'
-                            }`}>
-                                <AlertCircle className={`w-5 h-5 flex-shrink-0 ${
-                                    backendError.includes('réussie') ? 'text-green-500' : 'text-red-500'
-                                }`} />
+                                }`}>
+                                <AlertCircle className={`w-5 h-5 flex-shrink-0 ${backendError.includes('réussie') ? 'text-green-500' : 'text-red-500'
+                                    }`} />
                                 <p className="text-sm font-medium">{backendError}</p>
                             </div>
                         )}
@@ -404,8 +407,8 @@ export default function HomeScreen() {
                                 </div>
 
                                 {/* Login Button */}
-                                <Button 
-                                    type="submit" 
+                                <Button
+                                    type="submit"
                                     disabled={loading}
                                     className="w-full bg-gradient-to-r from-teal-600 to-blue-600 hover:from-teal-700 hover:to-blue-700 text-white py-4 rounded-2xl font-semibold shadow-lg shadow-teal-500/25 hover:shadow-xl hover:shadow-teal-500/30 transition-all duration-300 group disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
@@ -651,8 +654,8 @@ export default function HomeScreen() {
                                         </div>
 
                                         {/* Register Button */}
-                                        <Button 
-                                            type="submit" 
+                                        <Button
+                                            type="submit"
                                             disabled={loading}
                                             className="w-full bg-gradient-to-r from-blue-600 to-teal-600 hover:from-blue-700 hover:to-teal-700 text-white py-4 rounded-2xl font-semibold shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/30 transition-all duration-300 group disabled:opacity-50 disabled:cursor-not-allowed"
                                         >

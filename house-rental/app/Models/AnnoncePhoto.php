@@ -12,11 +12,7 @@ class AnnoncePhoto extends Model
     protected $fillable = [
         'annonce_id',
         'photo_path',
-        'is_main',
-    ];
-
-    protected $casts = [
-        'is_main' => 'boolean',
+        'photo_order'
     ];
 
     public function annonce()

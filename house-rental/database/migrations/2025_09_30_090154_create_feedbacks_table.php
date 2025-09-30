@@ -19,6 +19,8 @@ return new class extends Migration
             $table->integer('rating');
             $table->text('comment');
             $table->enum('type', ['annonce', 'user', 'system']);
+              $table->index(['user_id', 'annonce_id']);
+            $table->index(['type', 'created_at']);
             $table->timestamps();
         });
     }
@@ -28,6 +30,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('feedback');
+        Schema::dropIfExists('feedbacks');
     }
 };

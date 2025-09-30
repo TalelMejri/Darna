@@ -61,16 +61,6 @@ class User extends Authenticatable
         return $this->hasMany(Feedback::class);
     }
 
-    // public function chatsAsUser1()
-    // {
-    //     return $this->hasMany(Chat::class, 'user1_id');
-    // }
-
-    // public function chatsAsUser2()
-    // {
-    //     return $this->hasMany(Chat::class, 'user2_id');
-    // }
-
     // Scopes
     public function scopeProprietaires($query)
     {

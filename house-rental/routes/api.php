@@ -7,6 +7,7 @@ use App\Http\Controllers\ChatController;
 use App\Http\Controllers\FeedbackController;
 use App\Http\Controllers\NotifController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\OwnerController;
 use App\Http\Controllers\ReservationController;
 use App\Http\Controllers\SignalController;
 use Illuminate\Support\Facades\Route;
@@ -14,6 +15,7 @@ use Illuminate\Support\Facades\Route;
 // Public routes
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
+Route::get('/universities', [AnnonceController::class, 'university']);
 
 // Protected routes
 Route::middleware('auth:sanctum')->group(function () {
@@ -63,6 +65,14 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/users', [AdminController::class, 'users']);
         Route::delete('/users/{user}', [AdminController::class, 'destroyUser']);
         Route::put('/users/{user}/status', [AdminController::class, 'updateUserStatus']);
+    });
+
+    Route::prefix('owner')->group(function () {
+        Route::get('/dashboard-stats', [OwnerController::class, 'dashboardStats']);
+        Route::get('/annonces', [OwnerController::class, 'myAnnonces']);
+        Route::post('/annonces', [OwnerController::class, 'storeAnnonce']);
+        Route::put('/annonces/{annonce}', [OwnerController::class, 'updateAnnonce']);
+        Route::delete('/annonces/{annonce}', [OwnerController::class, 'deleteAnnonce']);
     });
 
 

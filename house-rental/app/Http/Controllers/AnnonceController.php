@@ -1,6 +1,7 @@
 <?php
 
 namespace App\Http\Controllers;
+
 use Illuminate\Support\Facades\Validator;
 use App\Models\Annonce;
 use App\Models\AnnoncePhoto;
@@ -11,42 +12,78 @@ class AnnonceController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Annonce::with(['photos', 'user'])->approved();
+        $query = Annonce::with(['photos', 'user:id,first_name,last_name'])
+            ->where("status", "approved")->get();
 
-        // Filter by price range
-        if ($request->has('min_price')) {
-            $query->where('price', '>=', $request->min_price);
-        }
-        if ($request->has('max_price')) {
-            $query->where('price', '<=', $request->max_price);
-        }
-
-        // Filter by rooms
-        if ($request->has('rooms')) {
-            $query->where('rooms', '>=', $request->rooms);
-        }
-
-        // Filter by type
-        if ($request->has('type')) {
+        if ($request->has('type') && $request->type !== '') {
             $query->where('type', $request->type);
         }
 
-        // Filter by location
-        if ($request->has(['latitude', 'longitude', 'radius'])) {
-            $query->nearby($request->latitude, $request->longitude, $request->radius);
+        if ($request->has('minPrice') && $request->minPrice !== '') {
+            $query->where('price', '>=', $request->minPrice);
         }
 
-        // Search by title or description
-        if ($request->has('search')) {
-            $query->where(function ($q) use ($request) {
-                $q->where('title', 'like', '%' . $request->search . '%')
-                    ->orWhere('description', 'like', '%' . $request->search . '%');
-            });
+        if ($request->has('maxPrice') && $request->maxPrice !== '') {
+            $query->where('price', '<=', $request->maxPrice);
         }
 
-        $annonces = $query->paginate(12);
+        if ($request->has('rooms') && $request->rooms !== '') {
+            $query->where('rooms', $request->rooms);
+        }
+
+        if ($request->has('minSurface') && $request->minSurface !== '') {
+            $query->where('surface', '>=', $request->minSurface);
+        }
+
+        if ($request->has('maxSurface') && $request->maxSurface !== '') {
+            $query->where('surface', '<=', $request->maxSurface);
+        }
+
+        if ($request->has('is_furnished') && $request->is_furnished) {
+            $query->where('is_furnished', true);
+        }
+
+        if ($request->has('has_wifi') && $request->has_wifi) {
+            $query->where('has_wifi', true);
+        }
+
+        if ($request->has('has_parking') && $request->has_parking) {
+            $query->where('has_parking', true);
+        }
+
+        $annonces = $query;
 
         return response()->json($annonces);
+    }
+
+    public function university()
+    {
+        $universities = [
+            [
+                'id' => 1,
+                'name' => 'University of Tunis',
+                'latitude' => 36.8000,
+                'longitude' => 10.1800,
+                'address' => 'Tunis, Tunisia'
+            ],
+            [
+                'id' => 2,
+                'name' => 'University of Carthage',
+                'latitude' => 36.8500,
+                'longitude' => 10.3300,
+                'address' => 'Carthage, Tunisia'
+            ],
+            [
+                'id' => 3,
+                'name' => 'University of Sfax',
+                'latitude' => 34.7400,
+                'longitude' => 10.7600,
+                'address' => 'Sfax, Tunisia'
+            ],
+            // Ajoutez d'autres universités...
+        ];
+
+        return response()->json($universities);
     }
 
 

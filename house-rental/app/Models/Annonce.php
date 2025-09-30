@@ -9,26 +9,8 @@ class Annonce extends Model
 {
     use HasFactory;
 
-    // protected $fillable = [
-    //     'user_id',
-    //     'title',
-    //     'description',
-    //     'address',
-    //     'latitude',
-    //     'longitude',
-    //     'price',
-    //     'surface',
-    //     'rooms',
-    //     'bathrooms',
-    //     'type',
-    //     'is_furnished',
-    //     'has_kitchen',
-    //     'has_wifi',
-    //     'has_parking',
-    //     'status',
-    //     'available_from',
-    // ];
-  protected $guarded = [];
+    protected $guarded = [];
+
     protected $casts = [
         'latitude' => 'decimal:8',
         'longitude' => 'decimal:8',
@@ -51,6 +33,12 @@ class Annonce extends Model
         return $this->hasMany(AnnoncePhoto::class);
     }
 
+    // Ajoutez cette relation pour la photo principale
+    public function mainPhoto()
+    {
+        return $this->hasOne(AnnoncePhoto::class)->oldestOfMany(); // Première photo comme photo principale
+    }
+
     public function reservations()
     {
         return $this->hasMany(Reservation::class);
@@ -61,10 +49,7 @@ class Annonce extends Model
         return $this->hasMany(Signal::class);
     }
 
-    public function feedbacks()
-    {
-        return $this->hasMany(Feedback::class);
-    }
+
 
     // Scopes
     public function scopeApproved($query)
@@ -75,6 +60,11 @@ class Annonce extends Model
     public function scopePending($query)
     {
         return $query->where('status', 'pending');
+    }
+
+    public function feedbacks()
+    {
+        return $this->hasMany(Feedback::class, 'user_id');
     }
 
     public function scopeAvailable($query)
@@ -91,4 +81,10 @@ class Annonce extends Model
             ->whereRaw("$haversine < ?", [$radius])
             ->orderBy('distance');
     }
-};
+
+    // Accessor pour la photo principale (fallback)
+    public function getMainPhotoAttribute()
+    {
+        return $this->photos->first();
+    }
+}
