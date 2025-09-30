@@ -67,3 +67,28 @@ A modern web application designed to help students find rental properties near u
 ```bash
 git clone https://github.com/yourusername/rentalapp.git
 cd rentalapp
+
+cd backend
+composer install
+cp .env.example .env
+php artisan key:generate
+
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=rentalapp
+DB_USERNAME=your_username
+DB_PASSWORD=your_password
+
+php artisan migrate --seed
+php artisan serve
+
+cd frontend
+npm install
+cp .env.example .env
+
+
+VITE_API_URL=http://localhost:8000/api
+VITE_OPENROUTE_SERVICE_API_KEY=your_openroute_api_key
+
+npm run dev
