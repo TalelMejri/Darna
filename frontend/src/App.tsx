@@ -23,8 +23,6 @@ import UserLayout from './layouts/etudiant/UserLayout';
 import UserProperties from './layouts/etudiant/UserProperties';
 import UserDashboard from './layouts/etudiant/userDashboard';
 
-
-
 const NonStudentDashboard = () => (
   <div className="min-h-screen bg-blue-50 flex items-center justify-center">
     <div className="text-center">
@@ -52,18 +50,13 @@ function AppContent() {
     const initializeApp = async () => {
       try {
         console.log('Authentication status:', isAuth);
-
-        // Check if onboarding was completed
         const onboardingCompleted = localStorage.getItem('onboardingCompleted') === 'true';
-
-        // If user is authenticated, go directly to main
         if (isAuth) {
           console.log('User is authenticated, skipping to main');
           setCurrentView('main');
           return;
         }
 
-        // If onboarding was completed, go to main
         if (onboardingCompleted) {
           console.log('Onboarding already completed, going to main');
           setCurrentView('main');
@@ -99,7 +92,6 @@ function AppContent() {
     setCurrentView('main');
   };
 
-  // Show loading state while checking authentication and onboarding status
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -111,7 +103,6 @@ function AppContent() {
     );
   }
 
-  // Render appropriate content based on current view and authentication status
   return (
     <>
       {currentView === 'splash' && (
@@ -128,19 +119,16 @@ function AppContent() {
       {currentView === 'main' && (
         <Router>
           <Routes>
-            {/* Public routes - only accessible when not authenticated */}
             <Route element={<PublicRoute />}>
               <Route path="/" element={<HomeScreen />} />
               <Route path="/login" element={<HomeScreen />} />
               <Route path="/register" element={<HomeScreen />} />
             </Route>
 
-            {/* Protected routes - only accessible when authenticated */}
             <Route element={<ProtectedRoute allowedRoles={['student', 'non-student']} />}>
               <Route path="/user/*" element={<UserLayout />}>
                 <Route path="dashboard" element={<UserDashboard />} />
                 <Route path="properties" element={<UserProperties />} />
-                <Route index element={<Navigate to="/user/dashboard" replace />} />
               </Route>
             </Route>
 
@@ -163,24 +151,9 @@ function AppContent() {
               <Route path="/owner/*" element={<OwnerLayout />}>
                 <Route path="dashboard" element={<OwnerDashboard />} />
                 <Route path="annonces" element={<OwnerAnnonces />} />
-                {/* <Route path="create-annonce" element={<CreateAnnonceModal />} />
-                <Route path="reservations" element={<OwnerReservations />} />
-                <Route path="profile" element={<OwnerProfile />} /> */}
                 <Route index element={<Navigate to="dashboard" replace />} />
               </Route>
             </Route>
-
-            {/* Redirect root to home when not authenticated, or to appropriate dashboard when authenticated */}
-            <Route
-              path="/"
-              element={
-                isAuth ?
-                  <Navigate to="/student/dashboard" replace /> :
-                  <Navigate to="/" replace />
-              }
-            />
-
-            {/* Catch all route */}
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </Router>

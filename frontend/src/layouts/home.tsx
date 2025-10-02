@@ -138,18 +138,16 @@ export default function HomeScreen() {
             setLoading(true);
             try {
                 const response = await login({ email: formData.email, password: formData.password });
-
                 if (response.status === 200) {
                     LoginUser(response.data.user);
                     localStorage.setItem('token', response.data.access_token);
                     const userRole = response.data.user.role;
-
                     switch (userRole) {
                         case 'admin':
                             navigate('/admin/dashboard');
                             break;
-                        case 'student':
-                            navigate('/student/annonces'); // Redirige vers les annonces
+                        case 'student':                            
+                            navigate('/user/dashboard');
                             break;
                         case 'non-student':
                             navigate('/nonstudent/dashboard');
